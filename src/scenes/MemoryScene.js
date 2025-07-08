@@ -99,6 +99,9 @@ export default class MemoryGameScene extends BaseScene {
   update(dt) {}
 
   render() {
+    if (this.lastRenderedScreen === this.currentScreen) return;
+    this.lastRenderedScreen = this.currentScreen;
+
     if (this.sceneEl) this.sceneEl.remove();
 
     this.sceneEl = document.createElement("div");
@@ -109,6 +112,7 @@ export default class MemoryGameScene extends BaseScene {
         this.renderStartScreen();
         break;
       case "rules":
+        console.log("Logiran render na pravila");
         this.renderRulesScreen();
         break;
       case "game":
@@ -122,17 +126,15 @@ export default class MemoryGameScene extends BaseScene {
 
   renderStartScreen() {
     this.sceneEl.innerHTML = `<div class="firstLayer layer">
-        <h1>Memory Game</h1>
-    </div>
-    <div class="secondLayer layer">
-        <button id="btnNewGame" class="textStyle btn">New Game</button>
-    </div>
-    <div class="thirdlayer layer">
         <button class="btn" id="btnBack">
             <img src="${
               this.assets.images.get("backButton").src
             }" height="100%"/>
         </button>
+        <h1>Memory</h1>
+    </div>
+    <div class="secondLayer layer">
+        <button id="btnNewGame" class="textStyle btn">Nova Igra</button>
     </div>
     `;
 
@@ -146,30 +148,33 @@ export default class MemoryGameScene extends BaseScene {
 
     this.btnBack = this.sceneEl.querySelector("#btnBack");
     this.sceneEl.querySelector("#btnBack").addEventListener("click", () => {
-      console.log("Back from start menu clicked");
       this.manager.switch("StartMenu");
     });
-
-    this.input.on("move", this.handleMove);
-    this.input.on("click", this.handleClick);
-    this.input.on("frameCount", this.updateFrameCount);
   }
 
   renderRulesScreen() {
     this.sceneEl.innerHTML = `<div class="memory-rules-screen">
-        <h1>How to Play</h1>
-        <p>Match all card pairs before time runs out!</p>
-        <button id="btnStart">Start Playing</button>
-        <button id="btnBack">Back</button>
+        <button id="btnBack">Back</button>    
+        <h1>Upute</h1>
+        <p>
+          Okreći po dvije kartice i pronađi sve iste parove. 
+          Ako se ne podudaraju, zatvaraju se.<br> <br>
+          Zapamti gdje se nalaze i otkrij sve parove!
+        </p>
+        <button id="btnStart">Igraj</button>
     </div>`;
 
+    this.container.appendChild(this.sceneEl);
+
     this.sceneEl.querySelector("#btnStart").addEventListener("click", () => {
-      this.startNewGame();
+      this.currentScreen = "game";
+      this.render();
     });
 
-    this.btnBack.addEventListener("click", () =>
-      this.manager.switch("StartMenu")
-    );
+    this.sceneEl.querySelector("#btnBack").addEventListener("click", () => {
+      this.currentScreen = "start";
+      this.render();
+    });
   }
 
   renderGameplayScreen() {
@@ -180,16 +185,17 @@ export default class MemoryGameScene extends BaseScene {
 
     this.sceneEl.innerHTML = `<div class="memory-game-ui">
         <div class="top-bar">
-            <button id="btnGiveUp">Give Up</button>
-            <div>Score: ${this.score}</div>
-            <div>Time: ${this.timeLeft}</div>
+            <button id="btnGiveUp">Odustani</button>
+            <div>Rezultat: ${this.score}</div>
+            <div>Vrijeme: ${this.timeLeft}</div>
         </div>
         <div class="card-grid">${gridHTML}</div>
     </div>`;
+    this.container.appendChild(this.sceneEl);
 
     this.sceneEl.querySelector("#btnGiveUp").addEventListener("click", () => {
       clearInterval(this.timerInterval);
-      this.currentScreen = "start";
+      this.currentScreen = "gameover";
       this.render();
     });
 
@@ -197,20 +203,43 @@ export default class MemoryGameScene extends BaseScene {
   }
 
   renderGameOverScreen() {
-    const message = this.gameResult === "win" ? "You Win!" : "Time's Up!";
-    this.sceneEl.innerHTML = `
+    const message = this.gameResult === "win" ? 1 : 0;
+    if (this.gameResult === "win") {
+      this.sceneEl.innerHTML = `
     <div class="memory-gameover-screen">
-      <h2>${message}</h2>
-      <p>Score: ${this.score}</p>
-      <button id="btnRestart">New Game</button>
-      <button id="btnMainMenu">Main Menu</button>
+      <h1>Kraj!</h1>
+      <p>
+        Tvoje vrijeme je isteklo.
+        Nažalost, nisi uspio pronaći sve parove. 
+        <br><br>
+        Pokušaj ponovo, siguran sam da ćeš uspjeti!
+      </p>
+      <button id="btnRestart">Nova igra</button>
+      <button id="btnMainMenu">Izbornik</button>
     </div>
-  `;
+    `;
+    } else {
+      this.sceneEl.innerHTML = `
+    <div class="memory-gameover-screen">
+      <h1>Kraj!</h1>
+      <p>
+        Čestitam ! <br> <br>
+        Pronašao si sve parove kartica sa Baltazarovim stvarima !
+      </p>
+      <button id="btnRestart">Nova igra</button>
+      <button id="btnMainMenu">Izbornik</button>
+    </div>
+    `;
+    }
+
+    this.container.appendChild(this.sceneEl);
 
     this.sceneEl.querySelector("#btnRestart").addEventListener("click", () => {
-      this.startNewGame();
+      this.currentScreen = "start";
+      this.render();
     });
 
+    this.btnBack = this.sceneEl.querySelector("#btnMainMenu");
     this.sceneEl.querySelector("#btnMainMenu").addEventListener("click", () => {
       this.manager.switch("StartMenu");
     });
