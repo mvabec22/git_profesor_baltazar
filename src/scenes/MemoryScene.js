@@ -42,6 +42,7 @@ export default class MemoryGameScene extends BaseScene {
         `/pictures/memoryGame/memory-card${i}.png`
       );
     }
+    this.styleEl = this.loadStyle("/css/Memory.css");
 
     this.sceneEl = document.createElement("div");
     this.sceneEl.classList.add("container");
@@ -125,16 +126,16 @@ export default class MemoryGameScene extends BaseScene {
   }
 
   renderStartScreen() {
-    this.sceneEl.innerHTML = `<div class="firstLayer layer">
-        <button class="btn" id="btnBack">
-            <img src="${
-              this.assets.images.get("backButton").src
-            }" height="100%"/>
-        </button>
+    this.sceneEl.innerHTML = `<div id="startScreen">
+      <button class="btn backBtn" id="btnBack">
+        <img src="${this.assets.images.get("backButton").src}" height="100%"/>
+      </button>
+      <div class="titleRow">
         <h1>Memory</h1>
-    </div>
-    <div class="secondLayer layer">
-        <button id="btnNewGame" class="textStyle btn">Nova Igra</button>
+      </div>
+      <div class="bottomRow">
+          <button id="btnNewGame" class="memoryBtn">Nova Igra</button>
+      </div>
     </div>
     `;
 
