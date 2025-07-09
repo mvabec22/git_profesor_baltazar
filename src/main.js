@@ -26,6 +26,6 @@ import MemoryScene from "@scenes/MemoryScene.js";
   });
   await engine.init();
 
-  await scenes.switch("Memory");
+  await scenes.switch("StartMenu");
   engine.start();
 })();

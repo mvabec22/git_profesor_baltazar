@@ -9,19 +9,19 @@ export default class MemoryGameScene extends BaseScene {
     this.handleMove = this.handleMove.bind(this);
     this.handleClick = this.handleClick.bind(this);
     this.updateFrameCount = this.updateFrameCount.bind(this);
-    // Game state vars
+
     this.cards = [];
     this.flippedCards = [];
     this.matchedCards = new Set();
 
     this.score = 0;
     this.timeLeft = 120;
+    this.gameResult = 0;
 
     this.timerInterval = null;
   }
 
   async init() {
-    // Load assets for cards, buttons, etc.
     await this.assets.loadImage("backButton", "/pictures/backButton.webp");
     await this.assets.loadImage(
       "cursor",
@@ -42,6 +42,11 @@ export default class MemoryGameScene extends BaseScene {
         `/pictures/memoryGame/memory-card${i}.png`
       );
     }
+    await this.assets.loadImage(
+      "mem-card-back",
+      "/pictures/memoryGame/memory-card-back.png"
+    );
+
     this.styleEl = this.loadStyle("/css/Memory.css");
 
     this.sceneEl = document.createElement("div");
@@ -55,48 +60,95 @@ export default class MemoryGameScene extends BaseScene {
 
   startNewGame() {
     this.score = 0;
-    this.timeLeft = 60;
+    this.timeLeft = 120;
     this.flippedCards = [];
     this.matchedCards.clear();
 
-    // Setup or shuffle cards here
     this.setupCards();
 
-    // Start timer
     if (this.timerInterval) clearInterval(this.timerInterval);
     this.timerInterval = setInterval(() => {
       this.timeLeft--;
       if (this.timeLeft <= 0) {
         this.timeLeft = 0;
         this.currentScreen = "gameover";
-        this.gameResult = "lose";
+        this.gameResult = 0;
         clearInterval(this.timerInterval);
+      } else {
+        this.renderGameplayScreen();
       }
     }, 1000);
 
     this.currentScreen = "game";
     this.render();
   }
-
-  setupCards() {
-    // Create and shuffle your 16 cards with pairs here
+  formatTime(seconds) {
+    const mins = Math.floor(seconds / 60)
+      .toString()
+      .padStart(2, "0");
+    const secs = (seconds % 60).toString().padStart(2, "0");
+    return `${mins}:${secs}`;
   }
-  /*
-  handleClick({ x, y }) {
-    // Depending on this.currentScreen handle button clicks or card flips
-    if (this.currentScreen === "start") {
-      // Check if New Game button clicked -> this.currentScreen = 'rules'
-      // Check if Back button clicked -> switch to main menu scene via this.manager.switch(...)
-    } else if (this.currentScreen === "rules") {
-      // Handle Start Playing button and Back button similarly
-    } else if (this.currentScreen === "game") {
-      // Check if Give Up clicked -> this.currentScreen = 'start' (or back to main menu)
-      // Detect card clicked and flip cards, check for matches, update score
-    } else if (this.currentScreen === "gameover") {
-      // Check buttons: New Game (restart), Main Menu (switch scene)
+  setupCards() {
+    const cardTypes = [];
+    for (let i = 1; i <= 6; i++) {
+      cardTypes.push(`mem-card${i}`);
+    }
+
+    // Add two of each type (for pairs)
+    const allCards = [...cardTypes, ...cardTypes];
+    for (let i = allCards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allCards[i], allCards[j]] = [allCards[j], allCards[i]];
+    }
+
+    this.cards = allCards.map((type, index) => ({
+      id: index,
+      type,
+      flipped: false,
+      matched: false,
+    }));
+  }
+
+  onCardClick(index) {
+    const card = this.cards[index];
+
+    if (card.flipped || card.matched || this.flippedCards.length === 2) return;
+
+    card.flipped = true;
+    this.flippedCards.push(card);
+
+    this.renderGameplayScreen();
+
+    if (this.flippedCards.length === 2) {
+      setTimeout(() => this.checkMatch(), 800);
     }
   }
-*/
+  checkMatch() {
+    const [cardA, cardB] = this.flippedCards;
+
+    if (cardA.type === cardB.type) {
+      cardA.matched = true;
+      cardB.matched = true;
+      this.matchedCards.add(cardA.id);
+      this.matchedCards.add(cardB.id);
+      this.score += 10;
+    } else {
+      cardA.flipped = false;
+      cardB.flipped = false;
+    }
+
+    this.flippedCards = [];
+    this.renderGameplayScreen();
+
+    if (this.cards.every((c) => c.matched)) {
+      clearInterval(this.timerInterval);
+      this.gameResult = 1;
+      this.currentScreen = "gameover";
+      this.render();
+    }
+  }
+
   update(dt) {}
 
   render() {
@@ -113,7 +165,6 @@ export default class MemoryGameScene extends BaseScene {
         this.renderStartScreen();
         break;
       case "rules":
-        console.log("Logiran render na pravila");
         this.renderRulesScreen();
         break;
       case "game":
@@ -154,22 +205,30 @@ export default class MemoryGameScene extends BaseScene {
   }
 
   renderRulesScreen() {
-    this.sceneEl.innerHTML = `<div class="memory-rules-screen">
-        <button id="btnBack">Back</button>    
+    this.sceneEl.innerHTML = `
+    <div id="uputeScreen">
+      <button class="btn backBtn" id="btnBack">
+        <img src="${this.assets.images.get("backButton").src}" height="100%"/>
+      </button>
+      <div class="titleRow">
         <h1>Upute</h1>
+      </div>
+      <div class="content">
         <p>
           Okreći po dvije kartice i pronađi sve iste parove. 
           Ako se ne podudaraju, zatvaraju se.<br> <br>
           Zapamti gdje se nalaze i otkrij sve parove!
         </p>
-        <button id="btnStart">Igraj</button>
+      </div>
+      <div class="bottomRow">
+        <button class="memoryBtn" id="btnStart">Igraj</button>
+      </div>
     </div>`;
 
     this.container.appendChild(this.sceneEl);
 
     this.sceneEl.querySelector("#btnStart").addEventListener("click", () => {
-      this.currentScreen = "game";
-      this.render();
+      this.startNewGame();
     });
 
     this.sceneEl.querySelector("#btnBack").addEventListener("click", () => {
@@ -179,56 +238,92 @@ export default class MemoryGameScene extends BaseScene {
   }
 
   renderGameplayScreen() {
-    let gridHTML = "";
-    for (let i = 0; i < 16; i++) {
-      gridHTML += `<div class="card" data-index="${i}"></div>`;
-    }
+    console.log("Rendering gameplay screen");
 
-    this.sceneEl.innerHTML = `<div class="memory-game-ui">
-        <div class="top-bar">
-            <button id="btnGiveUp">Odustani</button>
-            <div>Rezultat: ${this.score}</div>
-            <div>Vrijeme: ${this.timeLeft}</div>
-        </div>
-        <div class="card-grid">${gridHTML}</div>
+    if (this.sceneEl) this.sceneEl.remove();
+    this.sceneEl = document.createElement("div");
+    this.sceneEl.classList.add("container");
+
+    let gridHTML = this.cards
+      .map(
+        (card) => `
+      <div class="card" data-index="${card.id}">
+        <img src="${
+          card.flipped || card.matched
+            ? this.assets.images.get(card.type).src
+            : this.assets.images.get("mem-card-back").src
+        }"/>
+      </div>`
+      )
+      .join("");
+
+    this.sceneEl.innerHTML = `
+    <div id="gameScreen">
+      <button class="btn backBtn memoryBtn" id="btnGiveUp">
+        Odustani
+      </button>
+      <div class="titleRow">
+        <p>Rezultat: ${this.score}<br> Vrijeme: ${this.formatTime(this.timeLeft)}</p>
+      </div>
+      <div class="card-grid">${gridHTML}</div>
     </div>`;
     this.container.appendChild(this.sceneEl);
 
     this.sceneEl.querySelector("#btnGiveUp").addEventListener("click", () => {
       clearInterval(this.timerInterval);
       this.currentScreen = "gameover";
+      this.gameResult = 0;
       this.render();
     });
 
-    // Attach card click listeners later in game logic
+    console.log("Attaching card listeners...");
+    this.sceneEl.querySelectorAll(".card").forEach((cardEl) => {
+      console.log("Card listener attached to:", cardEl);
+      cardEl.addEventListener("click", (e) => {
+        console.log("Card clicked:", cardEl);
+        const index = parseInt(cardEl.getAttribute("data-index"));
+        this.onCardClick(index);
+      });
+    });
   }
 
   renderGameOverScreen() {
-    const message = this.gameResult === "win" ? 1 : 0;
-    if (this.gameResult === "win") {
+    if (this.gameResult === 0) {
       this.sceneEl.innerHTML = `
-    <div class="memory-gameover-screen">
-      <h1>Kraj!</h1>
-      <p>
-        Tvoje vrijeme je isteklo.
-        Nažalost, nisi uspio pronaći sve parove. 
-        <br><br>
-        Pokušaj ponovo, siguran sam da ćeš uspjeti!
-      </p>
-      <button id="btnRestart">Nova igra</button>
-      <button id="btnMainMenu">Izbornik</button>
+    <div id="overScreen">
+      <div class="titleRow">
+        <h1>Kraj</h1>
+      </div>
+      <div class="content">
+        <p>
+          Tvoje vrijeme je isteklo.
+          Nažalost, nisi uspio pronaći sve parove. 
+          <br><br>
+          Pokušaj ponovo, siguran sam da ćeš uspjeti!
+        </p>
+      </div>
+      <div class="bottomRow">
+        <button class="memoryBtn" id="btnRestart">Nova igra</button>
+        <button class="memoryBtn" id="btnMainMenu">Izbornik</button>
+      </div>
     </div>
     `;
     } else {
       this.sceneEl.innerHTML = `
-    <div class="memory-gameover-screen">
-      <h1>Kraj!</h1>
-      <p>
-        Čestitam ! <br> <br>
-        Pronašao si sve parove kartica sa Baltazarovim stvarima !
-      </p>
-      <button id="btnRestart">Nova igra</button>
-      <button id="btnMainMenu">Izbornik</button>
+   <div id="overScreen">
+      <div class="titleRow">
+        <h1>Kraj</h1>
+      </div>
+      <div class="content">    
+        <p>
+          Čestitam ! <br> <br>
+          Pronašao si sve parove kartica sa Baltazarovim stvarima !
+        </p>
+      </div>
+      <div class="bottomRow">
+        <button class="memoryBtn" id="btnRestart">Nova igra</button> <br>
+        <button class="memoryBtn" id="btnMainMenu">Izbornik</button>
+      </div>
     </div>
     `;
     }
@@ -252,6 +347,7 @@ export default class MemoryGameScene extends BaseScene {
 
   async destroy() {
     if (this.timerInterval) clearInterval(this.timerInterval);
+    this.lastRenderedScreen = null;
     this.input.off("move", this.handleMove);
     this.input.off("click", this.handleClick);
     this.sceneEl.remove();
@@ -268,5 +364,13 @@ export default class MemoryGameScene extends BaseScene {
       y * window.innerHeight
     );
     if (el && el.tagName === "BUTTON") el.click();
+
+    const cardEl = el.closest(".card");
+    if (cardEl) {
+      const index = parseInt(cardEl.getAttribute("data-index"));
+      if (!isNaN(index)) {
+        this.onCardClick(index);
+      }
+    }
   }
 }
